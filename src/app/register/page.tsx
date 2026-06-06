@@ -1,0 +1,98 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+
+export default function RegisterPage() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to register");
+      }
+
+      // Auto-login after registration
+      const loginRes = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (loginRes?.error) {
+        throw new Error("Registration successful, but auto-login failed.");
+      }
+
+      router.push("/profile");
+      router.refresh();
+      
+    } catch (err: any) {
+      setError(err.message || "Failed to register.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col justify-center items-center flex-grow py-16 px-6">
+      <div className="w-full max-w-sm">
+        <h1 className="text-3xl font-bold mb-8 uppercase tracking-tight text-center">Register</h1>
+        
+        {error && <div className="mb-4 text-sm font-mono border border-black p-3 bg-neutral-50 text-red-600">{error}</div>}
+        
+        <form onSubmit={handleRegister} className="flex flex-col gap-6">
+          <Input 
+            type="text" 
+            placeholder="Full Name" 
+            value={name} 
+            onChange={e => setName(e.target.value)} 
+            required 
+          />
+          <Input 
+            type="email" 
+            placeholder="Email Address" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            required 
+          />
+          <Input 
+            type="password" 
+            placeholder="Password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required 
+          />
+          
+          <Button type="submit" fullWidth disabled={loading}>
+            {loading ? "Registering..." : "Create Account"}
+          </Button>
+        </form>
+        
+        <p className="mt-8 text-center text-sm text-neutral-500">
+          Already have an account? <Link href="/login" className="text-black hover:underline">Login</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
