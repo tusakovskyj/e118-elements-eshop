@@ -15,7 +15,7 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
         {/* LEFT: Account */}
-        <div className="w-1/3 flex justify-start">
+        <div className="w-1/3 flex justify-start items-center gap-4">
           <Link href="/profile" className="flex items-center gap-2 text-sm font-medium hover:text-neutral-600 transition-colors">
             <User className="w-5 h-5" />
             {!loading && customUser && (
@@ -24,6 +24,16 @@ export const Navbar = () => {
               </span>
             )}
           </Link>
+          {!loading && customUser && (
+            <button 
+              onClick={() => {
+                import("next-auth/react").then(({ signOut }) => signOut({ callbackUrl: "/login" }));
+              }}
+              className="text-xs uppercase font-mono text-neutral-500 hover:text-black transition-colors"
+            >
+              Sign Out
+            </button>
+          )}
         </div>
 
         {/* CENTER: Logo */}

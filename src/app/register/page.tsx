@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -20,10 +19,34 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: name });
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to register");
+      }
+
+      // Auto-login after registration
+      const loginRes = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (loginRes?.error) {
+        throw new Error("Registration successful, but auto-login failed.");
+      }
+
       router.push("/profile");
+      router.refresh();
+      
     } catch (err: any) {
       setError(err.message || "Failed to register.");
     } finally {

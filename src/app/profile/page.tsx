@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signOut } from "firebase/auth";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { signOut } from "next-auth/react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 
@@ -25,20 +23,11 @@ export default function ProfilePage() {
     const fetchOrders = async () => {
       if (user) {
         try {
-          const q = query(
-            collection(db, "orders"),
-            where("userId", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-          const userOrders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          
-          userOrders.sort((a: any, b: any) => {
-            const dateA = a.createdAt?.toMillis?.() || 0;
-            const dateB = b.createdAt?.toMillis?.() || 0;
-            return dateB - dateA;
-          });
-          
-          setOrders(userOrders);
+          const res = await fetch("/api/orders");
+          if (res.ok) {
+            const data = await res.json();
+            setOrders(data);
+          }
         } catch (error) {
           console.error("Error fetching orders:", error);
         } finally {
@@ -70,7 +59,7 @@ export default function ProfilePage() {
               <Button variant="outline">Admin Dashboard</Button>
             </Link>
           )}
-          <Button variant="ghost" onClick={() => signOut(auth)}>Sign Out</Button>
+          <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/login" })}>Sign Out</Button>
         </div>
       </div>
 
@@ -95,10 +84,10 @@ export default function ProfilePage() {
                 <div key={order.id} className="border border-black p-4 flex flex-col gap-2">
                   <div className="flex justify-between font-mono text-sm">
                     <span className="opacity-50">Order #{order.id.slice(0, 8)}</span>
-                    <span>{new Date(order.createdAt?.toDate?.() || Date.now()).toLocaleDateString()}</span>
+                    <span>{new Date(order.createdAt || Date.now()).toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between items-center mt-2">
-                    <span className="uppercase text-sm font-bold">{order.items?.length || 0} items</span>
+                    <span className="uppercase text-sm font-bold">{JSON.parse(order.items || "[]").length} items</span>
                     <span className="font-mono font-bold">- {order.totalAmount} c</span>
                   </div>
                 </div>

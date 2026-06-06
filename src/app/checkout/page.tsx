@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, collection, runTransaction, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { useCartStore } from "@/store/useCartStore";
 import { Button } from "@/components/ui/Button";
@@ -61,22 +59,10 @@ export default function CheckoutPage() {
     setError("");
     
     try {
-      const userRef = doc(db, "users", user.uid);
-      const newOrderRef = doc(collection(db, "orders"));
-
-      await runTransaction(db, async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error("User document does not exist!");
-
-        const currentCredits = userDoc.data().credits || 0;
-        if (currentCredits < total) {
-          throw new Error("Insufficient credits. Authorized transaction denied.");
-        }
-
-        transaction.update(userRef, { credits: currentCredits - total });
-
-        transaction.set(newOrderRef, {
-          userId: user.uid,
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           items: items.map(i => ({
             productId: i.productId,
             name: i.name,
@@ -85,10 +71,14 @@ export default function CheckoutPage() {
           })),
           deliveryDetails: formData,
           totalAmount: total,
-          status: "processing",
-          createdAt: serverTimestamp()
-        });
+        }),
       });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Transaction failed");
+      }
 
       clearCart();
       router.push("/success");

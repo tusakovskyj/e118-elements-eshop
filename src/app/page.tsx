@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { ProductCard } from "@/components/ProductCard";
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
@@ -22,12 +20,11 @@ export default function Home() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setProducts(data);
+        const res = await fetch("/api/products");
+        if (res.ok) {
+          const data = await res.json();
+          setProducts(data);
+        }
       } catch (error) {
         console.error("Error fetching products", error);
       } finally {

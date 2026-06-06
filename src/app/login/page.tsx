@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -20,10 +19,20 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/profile");
+      const res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (res?.error) {
+        setError("Invalid email or password.");
+      } else {
+        router.push("/profile");
+        router.refresh();
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to login.");
+      setError("An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

@@ -1,73 +1,79 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { createContext, useContext, useEffect, useState } from "react";
+import { SessionProvider, useSession } from "next-auth/react";
 
-export interface CustomUser {
+interface CustomUser {
   uid: string;
   email: string;
   displayName: string;
   credits: number;
-  createdAt: any;
   isAdmin?: boolean;
 }
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: any; // The session user
   customUser: CustomUser | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, customUser: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  customUser: null,
+  loading: true,
+  refreshUser: async () => {},
+});
 
-export const useAuth = () => useContext(AuthContext);
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+function AuthProviderInner({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
   const [customUser, setCustomUser] = useState<CustomUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        
-        // Listen to custom user data realtime to always reflect correct credits balance
-        const unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnap) => {
-          if (docSnap.exists()) {
-            setCustomUser({ uid: firebaseUser.uid, ...docSnap.data() } as CustomUser);
-            setLoading(false);
-          } else {
-            // Create user document if it does not exist
-            const newUserData = {
-              email: firebaseUser.email || "",
-              displayName: firebaseUser.displayName || "",
-              credits: 1000,
-              createdAt: serverTimestamp(),
-            };
-            await setDoc(userDocRef, newUserData);
-            setCustomUser({ uid: firebaseUser.uid, ...newUserData } as CustomUser);
-            setLoading(false);
-          }
-        });
-
-        return () => unsubscribeSnapshot();
-      } else {
-        setCustomUser(null);
-        setLoading(false);
+  const fetchUserData = async () => {
+    if (session?.user) {
+      try {
+        const res = await fetch("/api/me");
+        if (res.ok) {
+          const data = await res.json();
+          setCustomUser({
+            uid: (session.user as any).id,
+            email: session.user.email!,
+            displayName: data.displayName || session.user.name || "",
+            credits: data.credits,
+            isAdmin: data.isAdmin,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch user data", err);
       }
-    });
+    } else {
+      setCustomUser(null);
+    }
+    setLoading(false);
+  };
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    if (status === "loading") {
+      setLoading(true);
+      return;
+    }
+    fetchUserData();
+  }, [session, status]);
 
   return (
-    <AuthContext.Provider value={{ user, customUser, loading }}>
+    <AuthContext.Provider value={{ user: session?.user || null, customUser, loading, refreshUser: fetchUserData }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthProviderInner>{children}</AuthProviderInner>
+    </SessionProvider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);

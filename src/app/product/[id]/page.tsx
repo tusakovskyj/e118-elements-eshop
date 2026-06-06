@@ -2,8 +2,6 @@
 
 import { useEffect, useState, use } from "react";
 import Image from "next/image";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useCartStore } from "@/store/useCartStore";
 import { Button } from "@/components/ui/Button";
 
@@ -16,10 +14,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const docRef = doc(db, "products", unwrappedParams.id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProduct({ id: docSnap.id, ...docSnap.data() });
+        const res = await fetch(`/api/products/${unwrappedParams.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProduct(data);
         }
       } catch (error) {
         console.error("Error fetching product", error);
